@@ -104,3 +104,44 @@ document.querySelectorAll('.rec-track').forEach(track => {
   addEventListener('resize', sync);
   sync();
 });
+
+// Checkout: unlock recipient + payment once the account step is done, float select labels,
+// default the delivery date, and keep the order summary totals in step with the quantity
+const coSteps = document.getElementById('coSteps');
+if (coSteps) {
+  const unlock = () => { coSteps.classList.remove('is-locked'); coSteps.querySelector('input,select')?.focus({ preventScroll: true }); };
+  document.querySelector('[data-co-guest]')?.addEventListener('click', unlock);
+  document.getElementById('coAccountForm')?.addEventListener('submit', e => {
+    e.preventDefault();
+    const id = document.getElementById('coIdentifier');
+    if (id.value.trim()) unlock(); else id.reportValidity();
+  });
+  coSteps.addEventListener('submit', e => e.preventDefault());
+
+  document.querySelectorAll('[data-co-float]').forEach(sel => {
+    const sync = () => sel.closest('.co-select').classList.toggle('is-floated', !!sel.value);
+    sel.addEventListener('change', sync); sync();
+  });
+  const city = document.getElementById('coCity'), area = document.getElementById('coArea');
+  city?.addEventListener('change', () => { area.disabled = !city.value; });
+
+  const date = document.getElementById('coDate');
+  if (date) {
+    const iso = d => d.toISOString().slice(0, 10), day = 864e5, now = Date.now();
+    date.min = iso(new Date(now + day)); date.value = iso(new Date(now + 3 * day));
+  }
+
+  const fmt = n => n.toLocaleString('en-US', { maximumFractionDigits: 2 });
+  document.querySelectorAll('.co-qty').forEach(box => {
+    const count = box.querySelector('[data-co-count]'), price = Number(box.dataset.price);
+    box.addEventListener('click', e => {
+      const b = e.target.closest('[data-co-qty]'); if (!b) return;
+      const q = Math.max(1, Number(count.textContent) + Number(b.dataset.coQty));
+      count.textContent = q; box.classList.toggle('is-multi', q > 1);
+      const sub = price * q, vat = Math.round(sub * 7.5) / 100;
+      document.querySelector('[data-co-sub]').textContent = fmt(sub);
+      document.querySelector('[data-co-vat]').textContent = fmt(vat);
+      document.querySelectorAll('[data-co-total]').forEach(t => { t.textContent = fmt(sub + vat); });
+    });
+  });
+}
